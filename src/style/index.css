@@ -1,0 +1,18 @@
+/* 全局生效 */
+.el-table .current-row .el-table__cell{
+  background-color: #d9ddd9 !important;
+}
+.comm_table_header{
+    text-align: center !important;
+}
+.top_nav{
+  font-weight: bold;
+}
+.top_bar {
+    display: flex;
+    height: 40px;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: end;
+    margin: 0 4px 10px 4px;
+}
