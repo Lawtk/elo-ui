@@ -5,7 +5,7 @@
         <el-input v-model="queryParams.name"></el-input>
       </el-form-item>
       <el-form-item label="表名称">
-        <el-input v-model="queryParams.tabelName"></el-input>
+        <el-input v-model="queryParams.tableName"></el-input>
       </el-form-item>
       <el-form-item>
         <el-button type="primary" @click="onSubmit">查询</el-button>
@@ -25,10 +25,12 @@
           </el-button>
         </template>
       </el-table-column>
+      <el-table-column prop="type" label="类型">
+        <template #default="scope">
+          <span v-html="formatData(scope.row.type, 'logic_table_type')"></span>
+        </template>
+      </el-table-column>
       <el-table-column prop="name" label="名称"></el-table-column>
-      <el-table-column prop="tableName" label="表名"></el-table-column>
-      <el-table-column prop="comment" label="注解"></el-table-column>
-      <el-table-column prop="databaseType" label="数据库类型"></el-table-column>
       <el-table-column prop="status" label="状态">
         <template #default="scope">
           <span
@@ -36,29 +38,57 @@
           ></span>
         </template>
       </el-table-column>
+      <el-table-column prop="tableName" label="表名"></el-table-column>
+      <el-table-column prop="comment" label="注解"></el-table-column>
+      <el-table-column prop="databaseType" label="数据库类型"></el-table-column>
     </el-table>
   </el-card>
   <el-dialog v-model="dialogVisible" title="编辑表信息" width="500" center>
     <el-form :model="logicTable" label-width="auto">
-      <el-form-item label="名称">
-        <el-input v-model="logicTable.name"></el-input>
-      </el-form-item>
-      <el-form-item label="表名称">
-        <el-input v-model="logicTable.tableName"></el-input>
-      </el-form-item>
-      <el-form-item label="注解">
-        <el-input v-model="logicTable.comment"></el-input>
-      </el-form-item>
-      <el-form-item label="数据源">
-        <el-select v-model="logicTable.dataSourceId" @change="changeDataSource">
+      <el-form-item label="类型">
+        <el-select v-model="logicTable.type">
           <el-option
-            v-for="item in dataSourceOptions"
+            v-for="item in optionsMap.get('logic_table_type')"
             :key="item.id"
             :value="item.value"
             :label="item.label"
           ></el-option>
         </el-select>
       </el-form-item>
+      <el-form-item label="名称">
+        <el-input v-model="logicTable.name"></el-input>
+      </el-form-item>
+      <template v-if="logicTable.type === 'table'">
+        <el-form-item label="表名称">
+          <el-input v-model="logicTable.tableName"></el-input>
+        </el-form-item>
+        <el-form-item label="注解">
+          <el-input v-model="logicTable.comment"></el-input>
+        </el-form-item>
+        <el-form-item label="预字段">
+          <el-select v-model="logicTable.preField">
+            <el-option
+              v-for="item in preFieldOptions"
+              :key="item.id"
+              :value="item.value"
+              :label="item.label"
+            ></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="数据源">
+          <el-select
+            v-model="logicTable.dataSourceId"
+            @change="changeDataSource"
+          >
+            <el-option
+              v-for="item in dataSourceOptions"
+              :key="item.id"
+              :value="item.value"
+              :label="item.label"
+            ></el-option>
+          </el-select>
+        </el-form-item>
+      </template>
     </el-form>
     <template #footer>
       <div class="dialog-footer">
@@ -71,7 +101,7 @@
   </el-dialog>
 </template>
 <script>
-import { commQuery, getCodeTable, getDataSourceList } from "@/util/query";
+import { commQuery, getCodeTableBatch, getDataSourceList } from "@/util/query";
 export default {
   data() {
     return {
@@ -84,35 +114,47 @@ export default {
         pageSize: 20,
         pageNum: 1,
       },
+      dataSourceOptions: [],
       queryParams: {
         name: "",
-        tabelName: "",
+        tableName: "",
       },
       optionsMap: new Map(),
+      optionKey: ["logic_table_status", "logic_table_type"],
     };
   },
-  mounted() {
+  created() {
     this.initPage();
   },
   methods: {
     initPage() {
-      this.setOptionMap();
-      this.setCodeTable();
+      this.setCodeTableBatch(this.optionKey);
       this.getList();
     },
-    setOptionMap() {
-      this.optionsMap.set("logic_table_status", []);
-    },
-    setCodeTable() {
-      let that = this;
-      this.optionsMap.forEach((value, key) => {
-        getCodeTable(key).then((res) => {
-          that.optionsMap.set(key, res.data);
-        });
+    setCodeTableBatch(ids) {
+      let codeList = [];
+      if (typeof ids == "string") {
+        codeList = ids.split(",");
+      } else if (Array.isArray(ids)) {
+        codeList = ids;
+      } else {
+        return;
+      }
+      getCodeTableBatch(codeList).then((res) => {
+        if (res.success) {
+          for (let key in res.data) {
+            this.optionsMap.set(key, res.data[key]);
+          }
+        }
       });
       getDataSourceList().then((res) => {
         if (res.success) {
           this.dataSourceOptions = res.data;
+        }
+      });
+      commQuery("/comm/getPreFieldList").then((res) => {
+        if (res.success) {
+          this.preFieldOptions = res.data;
         }
       });
     },
@@ -139,7 +181,6 @@ export default {
       let temp = this.dataSourceOptions.find((x) => x.value == e);
       this.logicTable.databaseType = temp.databaseType;
       this.logicTable.databaseName = temp.databaseName;
-      console.log(this.logicTable)
     },
     save() {
       if (this.saveMode === "add") {
@@ -170,8 +211,11 @@ export default {
     },
     formatData(value, code, needColor = true) {
       let res = "";
+      let temp;
       let option = this.optionsMap.get(code);
-      let temp = option.find((x) => x.value == value);
+      if (option) {
+        temp = option.find((x) => x.value == value);
+      }
       if (temp) {
         res = `<span ${
           needColor && temp.color ? 'style="color:' + temp.color + '"' : ""

@@ -2,15 +2,20 @@
   <el-card>
     <!-- 表信息 -->
     <el-descriptions :title="logicTable.name">
-      <el-descriptions-item label="表名">{{
-        logicTable.tableName
-      }}</el-descriptions-item>
+      <el-descriptions-item label="表名">
+       {{ logicTable.tableName }}
+      </el-descriptions-item>
       <el-descriptions-item label="注释">{{
         logicTable.comment
       }}</el-descriptions-item>
       <el-descriptions-item label="状态">
         <el-tag size="small">{{
           getCodeTableValue(logicTable.status, "logic_table_status")
+        }}</el-tag>
+      </el-descriptions-item>
+      <el-descriptions-item label="类型">
+        <el-tag size="small">{{
+          getCodeTableValue(logicTable.type, "logic_table_type")
         }}</el-tag>
       </el-descriptions-item>
       <el-descriptions-item label="数据库类型">
@@ -29,7 +34,14 @@
       </div>
       <div>
         <el-button
-          v-if="viewMode == 'view'"
+          v-if="viewMode == CONSTANTS.VIEW_MODE.VIEW"
+          type="warning"
+          size="small"
+          @click="tongbu"
+          >同步</el-button
+        >
+        <el-button
+          v-if="viewMode == CONSTANTS.VIEW_MODE.VIEW"
           type="warning"
           size="small"
           @click="wuhua"
@@ -39,7 +51,7 @@
           >刷新</el-button
         >
         <el-button
-          v-if="viewMode == 'view'"
+          v-if="viewMode == CONSTANTS.VIEW_MODE.VIEW"
           type="success"
           size="small"
           @click="editField"
@@ -77,10 +89,11 @@
           </el-button>
         </template>
       </el-table-column>
-      <el-table-column type="index" label="序号"> </el-table-column>
+      <el-table-column type="index" label="序号" align="center">
+      </el-table-column>
       <el-table-column prop="name" label="字段名">
         <template #default="scope">
-          <span v-if="viewMode == 'view'">{{ scope.row.name }}</span>
+          <span v-if="viewMode == CONSTANTS.VIEW_MODE.VIEW">{{ scope.row.name }}</span>
           <el-input
             v-else
             v-model="scope.row.name"
@@ -91,7 +104,7 @@
       <el-table-column prop="fieldType" label="字段类型">
         <template #default="scope">
           <span
-            v-if="viewMode == 'view'"
+            v-if="viewMode == CONSTANTS.VIEW_MODE.VIEW"
             v-html="formatData(scope.row.fieldType, databaseFieldType)"
           ></span>
           <el-select
@@ -112,7 +125,7 @@
       <el-table-column prop="dataType" label="数据类型">
         <template #default="scope">
           <span
-            v-if="viewMode == 'view'"
+            v-if="viewMode == CONSTANTS.VIEW_MODE.VIEW"
             v-html="formatData(scope.row.dataType, 'data_type')"
           ></span>
           <el-select
@@ -133,7 +146,7 @@
       <el-table-column prop="nullable" label="能否为空">
         <template #default="scope">
           <span
-            v-if="viewMode == 'view'"
+            v-if="viewMode == CONSTANTS.VIEW_MODE.VIEW"
             v-html="formatData(scope.row.nullable, 'tof')"
           ></span>
           <el-select
@@ -153,7 +166,7 @@
       </el-table-column>
       <el-table-column prop="length" label="长度">
         <template #default="scope">
-          <span v-if="viewMode == 'view'">{{ scope.row.length }}</span>
+          <span v-if="viewMode == CONSTANTS.VIEW_MODE.VIEW">{{ scope.row.length }}</span>
           <el-input
             v-else
             v-model="scope.row.length"
@@ -163,7 +176,9 @@
       </el-table-column>
       <el-table-column prop="decimalLength" label="小数位">
         <template #default="scope">
-          <span v-if="viewMode == 'view'">{{ scope.row.decimalLength }}</span>
+          <span v-if="viewMode == CONSTANTS.VIEW_MODE.VIEW">{{
+            scope.row.decimalLength
+          }}</span>
           <el-input
             v-else
             v-model="scope.row.decimalLength"
@@ -173,7 +188,9 @@
       </el-table-column>
       <el-table-column prop="primaryKey" label="键">
         <template #default="scope">
-          <span v-if="viewMode == 'view'">{{ scope.row.primaryKey }}</span>
+          <span v-if="viewMode == CONSTANTS.VIEW_MODE.VIEW">{{
+            scope.row.primaryKey
+          }}</span>
           <el-checkbox
             v-else
             :checked="scope.row.primaryKey > 0"
@@ -184,7 +201,7 @@
       </el-table-column>
       <el-table-column prop="comment" label="注释">
         <template #default="scope">
-          <span v-if="viewMode == 'view'">{{ scope.row.comment }}</span>
+          <span v-if="viewMode == CONSTANTS.VIEW_MODE.VIEW">{{ scope.row.comment }}</span>
           <el-input
             v-else
             v-model="scope.row.comment"
@@ -197,7 +214,8 @@
   </el-card>
 </template>
 <script>
-import { commQuery, getCodeTable } from "@/util/query";
+import * as CONSTANTS from "@/util/constants";
+import { commQuery, getCodeTable, getCodeTableBatch } from "@/util/query";
 import { ElMessageBox } from "element-plus";
 export default {
   data() {
@@ -207,9 +225,19 @@ export default {
       deletedList: [],
       queryParams: {},
       logicTable: {},
-      viewMode: "view",
-      databaseFieldType:"mysql_type",
+      viewMode: CONSTANTS.VIEW_MODE.VIEW,
+      databaseFieldType: "mysql_type",
       optionsMap: new Map(),
+      CONSTANTS: CONSTANTS,
+      optionKeys: [
+        "logic_table_status",
+        "logic_table_type",
+        "data_type",
+        "tof",
+        "mysql_type",
+        "oracle_type",
+        "database_type",
+      ],
       hiddenData: true,
     };
   },
@@ -222,7 +250,7 @@ export default {
   mounted() {},
   methods: {
     refushed() {
-      if (this.viewMode == "edit") {
+      if (this.viewMode == CONSTANTS.VIEW_MODE.EDIT) {
         ElMessageBox.confirm("未保存的数据将会清除！", "提示", {
           confirmButtonText: "继续",
           cancelButtonText: "取消",
@@ -243,6 +271,15 @@ export default {
         }
       );
     },
+    tongbu(){
+      commQuery("/dict/table/tongbu", { id: this.queryParams.tableId }).then(
+        (res) => {
+          if (res.success) {
+            console.log(1);
+          }
+        }
+      );
+    },
     getList() {
       commQuery(this.model_url + "/queryList", this.queryParams).then((res) => {
         if (res.success) {
@@ -256,42 +293,49 @@ export default {
       }).then((res) => {
         if (res.success) {
           this.logicTable = res.data;
-          this.setDatabaseFieldType(this.logicTable.databaseType)
+          this.setDatabaseFieldType(this.logicTable.databaseType);
         }
       });
     },
-    setDatabaseFieldType(e){
-      switch(e){
-        case "mysql":this.databaseFieldType="mysql_type";break;
-        case "oracle":this.databaseFieldType="oracle_type";break;
+    setDatabaseFieldType(e) {
+      switch (e) {
+        case "mysql":
+          this.databaseFieldType = "mysql_type";
+          break;
+        case "oracle":
+          this.databaseFieldType = "oracle_type";
+          break;
       }
     },
     initPage() {
-      this.setOptionMap();
-      this.setCodeTable();
+      this.setCodeTableBatch(this.optionKeys);
       this.getTableInfo();
       this.getList();
     },
-    setOptionMap() {
-      this.optionsMap.set("logic_table_status", []);
-      this.optionsMap.set("data_type", []);
-      this.optionsMap.set("tof", []);
-      this.optionsMap.set("mysql_type", []);
-      this.optionsMap.set("oracle_type", []);
-      this.optionsMap.set("database_type", []);
-    },
-    setCodeTable() {
-      let that = this;
-      this.optionsMap.forEach((value, key) => {
-        getCodeTable(key).then((res) => {
-          that.optionsMap.set(key, res.data);
-        });
+    setCodeTableBatch(ids) {
+      let codeList = [];
+      if (typeof ids == "string") {
+        codeList = ids.split(",");
+      } else if (Array.isArray(ids)) {
+        codeList = ids;
+      } else {
+        return;
+      }
+      getCodeTableBatch(codeList).then((res) => {
+        if (res.success) {
+          for (let key in res.data) {
+            this.optionsMap.set(key, res.data[key]);
+          }
+        }
       });
     },
     formatData(value, code, needColor = true) {
       let res = "";
+      let temp;
       let option = this.optionsMap.get(code);
-      let temp = option.find((x) => x.value == value);
+      if (option) {
+        temp = option.find((x) => x.value == value);
+      }
       if (temp) {
         res = `<span ${
           needColor && temp.color ? 'style="color:' + temp.color + '"' : ""
@@ -301,22 +345,25 @@ export default {
     },
     getCodeTableValue(value, code) {
       let res = "";
+      let temp;
       let option = this.optionsMap.get(code);
-      let temp = option.find((x) => x.value == value);
+      if (option) {
+        temp = option.find((x) => x.value == value);
+      }
       if (temp) {
         res = temp.label;
       }
       return res;
     },
     editField() {
-      this.viewMode = "edit";
+      this.viewMode = CONSTANTS.VIEW_MODE.EDIT;
     },
     addField() {
       let newItem = {
         tableId: this.queryParams.tableId,
         name: "field" + (this.list.length + 1),
         comment: "注释" + (this.list.length + 1),
-        dataStatus: "ADD",
+        dataStatus: CONSTANTS.DATA_TYPE.ADD,
         serial: this.list.length + 1,
         primaryKey: 0,
         nullable: "1",
@@ -330,8 +377,8 @@ export default {
       //处理数据
       this.list.forEach((x, i) => {
         //变序状态
-        if (x.serial !== i + 1 && x.dataStatus == "ORIGIN") {
-          x.dataType = "UPDATE";
+        if (x.serial !== i + 1 && x.dataStatus == CONSTANTS.DATA_TYPE.ORIGIN) {
+          x.dataType = CONSTANTS.DATA_TYPE.UPDATE;
         }
       });
       commQuery(
@@ -346,12 +393,12 @@ export default {
             this.getTableInfo();
           });
         }
-        this.viewMode = "view";
+        this.viewMode = CONSTANTS.VIEW_MODE.VIEW;
         this.getList();
       });
     },
     cancelEditField() {
-      this.viewMode = "view";
+      this.viewMode = CONSTANTS.VIEW_MODE.VIEW;
       this.getList();
     },
     up(index) {
@@ -390,29 +437,29 @@ export default {
       //删除元素
       let deletedItem = this.list.splice(index, 1)[0];
       //非新增数据，加入删除数组
-      if (deletedItem.dataStatus != "ADD") {
-        deletedItem.dataStatus = "DELETE";
+      if (deletedItem.dataStatus != CONSTANTS.DATA_TYPE.ADD) {
+        deletedItem.dataStatus = CONSTANTS.DATA_TYPE.DELETE;
         this.deletedList.push(deletedItem);
       }
     },
     rowChange(row, dataStatus, fun) {
       //标记修改状态
       switch (dataStatus) {
-        case "ADD":
+        case CONSTANTS.DATA_TYPE.ADD:
           row.dataStatus = dataStatus;
           break;
-        case "UPDATE":
-          if (row.dataStatus != "ADD") {
+        case CONSTANTS.DATA_TYPE.UPDATE:
+          if (row.dataStatus != CONSTANTS.DATA_TYPE.ADD) {
             row.dataStatus = dataStatus;
           }
           break;
-        case "DELETE":
+        case CONSTANTS.DATA_TYPE.DELETE:
           row.dataStatus = dataStatus;
           break;
       }
       //可传入一个方法回调
       if (fun) {
-        fun(row);
+        fun(row, dataStatus);
       }
     },
   },
